@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Juego del Impostor — Mejorado</title>
+  <style>
+    :root{
+      --bg:#0a0f1e; --panel:#0f172a; --border:#1e293b; --text:#e5e7eb;
+      --muted:#94a3b8; --primary:#2563eb; --primary-2:#7c3aed;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(124,58,237,.08), transparent 60%),
+                  radial-gradient(1200px 600px at 90% 90%, rgba(34,197,94,.08), transparent 60%),
+                  var(--bg);
+      color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    }
+    header{
+      width:100%; padding:16px 20px; background: rgba(15,23,42,.6);
+      backdrop-filter: blur(6px); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10;
+    }
+    header h1{ margin:0; font-size:clamp(18px, 2.2vw, 24px); letter-spacing:.3px; }
+    main{ width:100%; max-width:920px; padding:18px; display:grid; gap:14px; }
+    .panel{
+      background:linear-gradient(180deg, rgba(15,23,42,.9), rgba(15,23,42,.8));
+      border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .row{ display:grid; grid-template-columns: 1fr auto; gap:12px; align-items:center; }
+    .status{ color:var(--muted); min-height:1.2rem; font-size:.95rem; text-align:center; }
+    label{ color:#cbd5e1; }
+    input[type="number"], input[type="text"], textarea, select{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
+      background:#0b1220; color:var(--text); outline:none;
+    }
+    textarea{ min-height:90px; resize:vertical; }
+    button{
+      cursor:pointer; border:0; border-radius:12px; padding:12px 16px; font-weight:700;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color:white; box-shadow: 0 10px 25px rgba(37,99,235,.25);
+      transition: transform .06s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    button.secondary{
+      background: linear-gradient(135deg, #334155, #475569);
+      box-shadow: 0 10px 25px rgba(51,65,85,.25);
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+
+    details.cats{
+      border:1px solid var(--border); border-radius:12px; background:#0b1220; padding:10px 12px;
+    }
+    details.cats > summary{ list-style:none; cursor:pointer; display:flex; gap:10px; font-weight:700; color:#cbd5e1; user-select:none; }
+    details.cats > summary::marker{ display:none; }
+    .cats-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px 14px; padding-top:10px; }
+    .cat{ display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:#0f172a; }
+    .cat input{ accent-color: var(--primary); }
+
+    .addcat{ margin-top:14px; padding:12px; border:1px dashed var(--border); border-radius:12px; background:#0f172a; display:grid; gap:10px; }
+    .hint{ color:var(--muted); font-size:.9rem }
+
+    .stage{ display:grid; place-items:center; width:100%; min-height: 52vh; perspective:1200px; -webkit-perspective:1200px; }
+    .card{
+      width:min(86vw, 560px); height:min(60vh, 520px);
+      position:relative; transform-style:preserve-3d; -webkit-transform-style:preserve-3d;
+      transition: transform 0.65s cubic-bezier(.2,.8,.2,1), box-shadow .3s ease, filter .3s ease;
+      -webkit-transition: -webkit-transform 0.65s cubic-bezier(.2,.8,.2,1);
+      user-select:none; border-radius:22px; border:1px solid var(--border);
+      background: linear-gradient(135deg, #0b1220, #0e1526);
+      box-shadow: 0 30px 60px rgba(0,0,0,.40); will-change: transform;
+    }
+    .card.big{ width:min(94vw, 760px); height:min(76vh, 700px); }
+    .card.flipped{ transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
+    .face{
+      position:absolute; inset:0; display:grid; place-items:center;
+      backface-visibility:hidden; -webkit-backface-visibility:hidden;
+      padding:28px; border-radius:22px; text-align:center; transform: translateZ(0); -webkit-transform: translateZ(0);
+    }
+    .front{
+      background:
+        radial-gradient(200px 120px at 20% 20%, rgba(124,58,237,.15), transparent 60%),
+        radial-gradient(220px 140px at 80% 80%, rgba(34,197,94,.12), transparent 60%),
+        linear-gradient(135deg, #0f172a, #0b1220); color:#cbd5e1;
+    }
+    .front .title{ font-size: clamp(18px, 3.2vw, 28px); font-weight:800; letter-spacing:.4px; }
+    .front .turn{ margin-top:10px; color:#9ca3af; font-size: clamp(12px, 2vw, 15px); }
+    .back{
+      transform: rotateY(180deg); -webkit-transform: rotateY(180deg);
+      background:
+        radial-gradient(240px 160px at 15% 15%, rgba(124,58,237,.25), transparent 60%),
+        radial-gradient(200px 140px at 85% 85%, rgba(34,197,94,.2), transparent 60%),
+        linear-gradient(135deg, #0b1220, #0f172a); color:#e5e7eb;
+    }
+    .role{ font-size: clamp(28px, 5vw, 42px); font-weight:900; letter-spacing:.5px; }
+    .word{ margin-top:6px; font-size: clamp(20px, 4.2vw, 32px); font-weight:800; color:#93c5fd; }
+    .impostor{ color:#fca5a5; text-shadow: 0 0 18px rgba(239,68,68,.35); }
+
+    .play .panel{ display:none; }
+    .play .stage{ min-height: 72vh; }
+    .footer-note{ color:var(--muted); text-align:center; }
+    @media (max-width: 520px){ .play .card{ height: min(78vh, 640px); } }
+  </style>
+</head>
+<body>
+  <header><h1>Juego del Impostor — Mejorado</h1></header>
+
+  <main>
+    <section class="panel" id="panel">
+      <div class="row">
+        <label for="numJugadores">Cantidad de jugadores (mín 3):</label>
+        <div style="display:grid; grid-template-columns: 140px 1fr; gap:10px; align-items:center;">
+          <input id="numJugadores" type="number" min="3" value="4" />
+          <!-- Selector de impostores (visible solo si jugadores > 6) -->
+          <div id="impostorBlock" style="display:none; align-items:center; gap:8px;">
+            <label for="numImpostores" style="white-space:nowrap;">Impostores 😈</label>
+            <select id="numImpostores">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <details class="cats" id="catsDetails" open>
+        <summary>Seleccionar categorías</summary>
+        <div class="cats-grid" id="categorias"></div>
+
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+          <button id="btnSelTodas" class="secondary" type="button">Seleccionar todas</button>
+          <button id="btnDeselTodas" class="secondary" type="button">Deseleccionar todas</button>
+        </div>
+
+        <div class="addcat">
+          <div>
+            <label for="catName">Nombre de nueva categoría</label>
+            <input id="catName" type="text" placeholder="Ej: Películas, Pueblos, Juegos retro..." />
+          </div>
+          <div>
+            <label for="catWords">Palabras (separadas por coma)</label>
+            <textarea id="catWords" placeholder="Ej: Matrix, El Padrino, Relatos salvajes"></textarea>
+            <div class="hint">Separa por coma. Se ignoran vacíos y duplicados.</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="btnAddCat" type="button">Agregar categoría</button>
+            <button id="btnClearCustom" class="secondary" type="button" title="Borrar solo categorías personalizadas">Borrar categorías personalizadas</button>
+          </div>
+          <div class="hint" id="addCatMsg"></div>
+        </div>
+
+        <p class="hint" style="margin-top:10px;">Podés elegir varias. Si no elegís ninguna, se usan todas por defecto.</p>
+      </details>
+
+      <div class="row" style="margin-top:6px;">
+        <div class="status" id="estado">Listo para empezar una ronda.</div>
+        <div style="display:flex; gap:8px;">
+          <button id="btnIniciar" type="button" title="Inicia la ronda y enfoca la tarjeta">Iniciar ronda</button>
+          <button id="btnNueva" class="secondary" type="button" style="display:none;">Nueva ronda</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="card" id="card" role="button" aria-label="Tarjeta de rol" tabindex="0">
+        <div class="face front">
+          <div>
+            <div class="title">Tarjeta boca abajo</div>
+            <div class="turn" id="turnoInfo"></div>
+          </div>
+        </div>
+        <div class="face back">
+          <div id="contenidoRol"></div>
+        </div>
+      </div>
+      <p class="footer-note">Tip: al iniciar, el menú se oculta y la tarjeta queda grande en el centro. Tocá para revelar y para pasar al siguiente.</p>
+    </section>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // --- Defaults y carga/persistencia de categorías (igual que antes) ---
+      const DEFAULT_CATS = {
+        "Hogar":["cafetera","microondas","televisor","sillón","heladera","tostadora","ventilador","cortina","almohada","colchón","espejo","perchero","lámpara","enchufe","alargue","mesa ratona","placard","alfombra","frazada","mantel","repasador","cacerola","sartén","cuchillo","tenedor","cucharón","abrelatas","pelapapas","batidora","procesadora","licuadora","pava","termo","mate","bombilla","escoba","trapito","trapo de piso","balde","secador","plato","taza","vaso","fuente","salero","pimentero","azucarera","jabonera","toallero","perfumina","portarretrato","maceta","cable HDMI","control remoto","router","consola","teclado","mouse","cargador","regla","fibron","birome","cuaderno","libreta","marcador","pegamento","tijera","caja de herramientas","destornillador","martillo"],
+        "Marcas":["Nike","Adidas","Puma","Converse","Reebok","Fila","Topper","Levi's","Zara","H&M","Apple","Samsung","Xiaomi","Motorola","LG","Sony","Philips","Lenovo","HP","Dell","Volkswagen","Ford","Chevrolet","Toyota","Renault","Peugeot","Fiat","Audi","BMW","Mercedes","Coca-Cola","Pepsi","Manaos","Sprite","Fanta","Tang","Bonafide","Havanna","Arcor","Serenisima"],
+        "Jerga":["skate","bondi","birra","fernecito","asado","choripán","morfi","quilombo","laburo","guita","fiaca","changa","garrón","alta data","flash","posta","manso","facha","tranca","re piola","cheto","mugre","fulbo","mate cocido","picada","napo","milanesa","empanada","facturas","torta frita"],
+        "Ocio/Deportes":["pelota","red","raqueta","patines","monopatín","bicicleta","patineta","casco","guantes","lentes","cámara","trípode","drone","parlante","auriculares","vinilo","púa","guitarra","bajo","piano","libro","cómic","revista","rompecabezas","cartas","dado","tablero","ajedrez","domino","yenga"],
+        "Tecnología/Oficina":["notebook","pendrive","disco externo","impresora","tóner","papel A4","resma","clip","carpeta","sobre","marcador fluorescente","pos-it","agenda","sellito","cinta scotch","corrector","regleta","multitoma","benjamín","proyector"],
+        "Cocina+":["colador","espumadera","cucharita","jarra","rallador","molde","pincel de cocina","horno eléctrico","papel aluminio","film","tupper","frasco","sifón","soda","sacacorchos","copón","mate de vidrio","yerbera","azucarera","servilleta"],
+        "Baño/Limpieza":["shampoo","acondicionador","jabón","esponja","toalla","toallón","hisopos","algodón","spray","limpiavidrios","desodorante ambiente","lavandina","detergente","suavizante","polvo","escobillón","recogedor","plumero","cepillo","esponja metálica"],
+        "Ropa/Accesorios":["campera","buzo","remera","pantalón","jean","zapatillas","ojotas","medias","gorra","bufanda","guantes de lana","cinturón","bolso","mochila","riñonera","lentes de sol","paraguas","reloj","anillo","collar"],
+        "Snacks/Bebidas":["papas fritas","palitos","maní","alfajor","chocolate","caramelos","mentitas","chicles","galletitas","turrón","agua saborizada","energética","jugo","mate listo","tereré","café instantáneo","té","mate cocido","leche en polvo","cacao"],
+        "Varios urbanos":["tarjeta SUBE","llavero","billetera","monedas","billetes","boleta","factura de luz","factura de gas","ticket","entrada","mapa","boleto","abono","credencial","DNI","carnet","hand spinner","yo-yo","slime","peluche"]
+      };
+      const LS_KEY = "impostor_cats_v1";
+      let CATS = loadCats();
+
+      function loadCats(){
+        try{
+          const raw = localStorage.getItem(LS_KEY);
+          if(!raw) return JSON.parse(JSON.stringify(DEFAULT_CATS));
+          const parsed = JSON.parse(raw);
+          const out = JSON.parse(JSON.stringify(DEFAULT_CATS));
+          Object.keys(parsed||{}).forEach(k=>{
+            if(Array.isArray(parsed[k])) out[k] = uniqStrings((out[k]||[]).concat(parsed[k]));
+          });
+          return out;
+        }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_CATS)); }
+      }
+      function saveCats(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(CATS)); }catch(e){} }
+
+      const catsContainer = document.getElementById("categorias");
+      const btnSelTodas = document.getElementById("btnSelTodas");
+      const btnDeselTodas = document.getElementById("btnDeselTodas");
+      const catsDetails = document.getElementById("catsDetails");
+
+      const estado = document.getElementById("estado");
+      const turnoInfo = document.getElementById("turnoInfo");
+      const card = document.getElementById("card");
+      const contenidoRol = document.getElementById("contenidoRol");
+      const btnIniciar = document.getElementById("btnIniciar");
+      const btnNueva = document.getElementById("btnNueva");
+      const numJugadores = document.getElementById("numJugadores");
+
+      const catName = document.getElementById("catName");
+      const catWords = document.getElementById("catWords");
+      const btnAddCat = document.getElementById("btnAddCat");
+      const btnClearCustom = document.getElementById("btnClearCustom");
+      const addCatMsg = document.getElementById("addCatMsg");
+
+      const impostorBlock = document.getElementById("impostorBlock");
+      const numImpostores = document.getElementById("numImpostores");
+
+      let jugadores=0, turno=0, palabra="", fase="oculta", ultimaPalabra="";
+      let impostores = new Set(); // IDs 1..jugadores
+      let tapLock = false;
+
+      function renderCategorias(){
+        catsContainer.innerHTML = "";
+        Object.keys(CATS).forEach((nombre, i) => {
+          const id = "cat_" + i;
+          const label = document.createElement("label");
+          label.className = "cat";
+          label.innerHTML = `<input type="checkbox" id="${id}" data-cat="${nombre}" checked>
+                             <span>${nombre}</span>`;
+          catsContainer.appendChild(label);
+        });
+      }
+      renderCategorias();
+
+      catsDetails.addEventListener("toggle", () => {
+        if (catsDetails.open && catsContainer.children.length === 0) renderCategorias();
+      });
+      btnSelTodas.onclick = ()=> catsContainer.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = true);
+      btnDeselTodas.onclick = ()=> catsContainer.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+
+      // Mostrar/ocultar selector de impostores
+      function updateImpostorUI(){
+        const n = parseInt(numJugadores.value||"0",10);
+        impostorBlock.style.display = (n > 6) ? "grid" : "none";
+        // limitar opciones según jugadores
+        const maxImp = Math.min(3, Math.max(1, n - 1));
+        [...numImpostores.options].forEach(opt => {
+          opt.disabled = (parseInt(opt.value,10) > maxImp);
+        });
+        if (parseInt(numImpostores.value,10) > maxImp) numImpostores.value = String(maxImp);
+      }
+      numJugadores.addEventListener("input", updateImpostorUI);
+      updateImpostorUI();
+
+      // Agregar categoría personalizada
+      btnAddCat.addEventListener("click", () => {
+        const name = (catName.value||"").trim();
+        const list = parseWordList(catWords.value||"");
+        addCatMsg.textContent = "";
+        if(!name){ addCatMsg.textContent = "Poné un nombre para la categoría."; return; }
+        if(list.length === 0){ addCatMsg.textContent = "Agregá al menos una palabra (separadas por coma)."; return; }
+        if(CATS[name]){
+          const merge = confirm(`La categoría "${name}" ya existe. ¿Querés fusionar agregando estas palabras?`);
+          if(!merge) return;
+          CATS[name] = uniqStrings(CATS[name].concat(list));
+        } else {
+          CATS[name] = uniqStrings(list);
+        }
+        saveCats();
+        renderCategorias();
+        const checkbox = [...catsContainer.querySelectorAll("input[type=checkbox]")].find(c => c.dataset.cat === name);
+        if(checkbox) checkbox.checked = true;
+        catName.value = ""; catWords.value = "";
+        addCatMsg.textContent = "¡Categoría guardada!"; setTimeout(()=>addCatMsg.textContent="", 2000);
+      });
+      btnClearCustom.addEventListener("click", () => {
+        const ok = confirm("Esto borra solo las categorías agregadas por vos (no las predeterminadas). ¿Continuar?");
+        if(!ok) return;
+        CATS = JSON.parse(JSON.stringify(DEFAULT_CATS));
+        saveCats(); renderCategorias();
+      });
+
+      function parseWordList(text){
+        return uniqStrings(text.split(",").map(s=>s.trim()).filter(Boolean));
+      }
+      function uniqStrings(arr){
+        const seen = new Set(); const out=[];
+        arr.forEach(w=>{ const k=w.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(w);} });
+        return out;
+      }
+
+      function palabrasSeleccionadas(){
+        const activos = [...catsContainer.querySelectorAll("input[type=checkbox]")].filter(c => c.checked).map(c => c.dataset.cat);
+        const usar = activos.length ? activos : Object.keys(CATS);
+        const pool = []; usar.forEach(cat => pool.push(...CATS[cat]));
+        return pool;
+      }
+      function elegirPalabra(){
+        const pool = palabrasSeleccionadas();
+        if(!pool.length) return "mate";
+        let candidata = pool[Math.floor(Math.random()*pool.length)];
+        let tries = 0;
+        while(candidata === ultimaPalabra && tries < 25){
+          candidata = pool[Math.floor(Math.random()*pool.length)];
+          tries++;
+        }
+        ultimaPalabra = candidata; return candidata;
+      }
+
+      function actualizarEstado(){
+        const impTxt = (impostores.size>1) ? `Impostores: ${[...impostores].join(", ")}` : `Impostor: ${[...impostores][0]||"-"}`;
+        estado.textContent = `Ronda activa — Jugadores: ${jugadores}. Turno ${turno}/${jugadores}. ${impTxt}`;
+        turnoInfo.textContent = `Turno del participante ${turno} / ${jugadores}`;
+      }
+
+      function iniciarRonda(){
+        jugadores = parseInt(numJugadores.value||"0",10);
+        if(isNaN(jugadores) || jugadores < 3){ alert("Necesitás al menos 3 jugadores."); return; }
+        if(palabrasSeleccionadas().length === 0){ alert("Seleccioná al menos una categoría o dejalas todas por defecto."); return; }
+
+        // calcular cantidad de impostores
+        let cant = 1;
+        if (jugadores > 6) {
+          cant = Math.min(Math.max(parseInt(numImpostores.value||"1",10),1), Math.min(3, jugadores-1));
+        }
+        impostores = pickImpostors(jugadores, cant);
+
+        document.body.classList.add("play");
+        catsDetails.open = false;
+
+        turno = 1;
+        palabra = elegirPalabra();
+        fase = "oculta";
+        card.classList.remove("flipped");
+        card.classList.add("big");
+        contenidoRol.innerHTML = "";
+        btnNueva.style.display = "none";
+        actualizarEstado();
+      }
+
+      function pickImpostors(nPlayers, count){
+        const set = new Set();
+        while(set.size < count){
+          set.add(Math.floor(Math.random()*nPlayers)+1); // 1..nPlayers
+        }
+        return set;
+      }
+
+      function renderBack(){
+        if(impostores.has(turno)){
+          contenidoRol.innerHTML = `<div class="role impostor">¡SOS EL IMPOSTOR!</div><div style="color:#9ca3af; font-size:.95rem">No tenés palabra — improvisá 😉</div>`;
+        } else {
+          contenidoRol.innerHTML = `<div class="role">Tu palabra</div><div class="word">${escapeHTML(palabra)}</div>`;
+        }
+      }
+      function escapeHTML(s){
+        return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      }
+
+      function onCardActivate(){
+        if(tapLock) return;
+        tapLock = true; setTimeout(()=>tapLock=false, 220);
+        if(jugadores < 3 || turno < 1) return;
+
+        if(fase === "oculta"){
+          renderBack(); contenidoRol.offsetHeight;
+          card.classList.add("flipped"); fase = "revelada";
+        } else {
+          card.classList.remove("flipped"); fase = "oculta"; turno++;
+          if(turno > jugadores){
+            estado.textContent = "¡Listo! Ya tienen sus roles. ¡A jugar!";
+            turnoInfo.textContent = "Ronda finalizada";
+            btnNueva.style.display = "inline-block";
+            document.body.classList.remove("play");
+            card.classList.remove("big");
+          } else {
+            actualizarEstado();
+          }
+        }
+      }
+
+      card.addEventListener("click", onCardActivate, {passive:true});
+      card.addEventListener("keydown", (e)=>{ if(e.code==="Enter"||e.code==="Space"){ e.preventDefault(); onCardActivate(); } });
+
+      btnIniciar.addEventListener("click", iniciarRonda);
+      btnNueva.addEventListener("click", iniciarRonda);
+
+      turnoInfo.textContent = "";
+    });
+  </script>
+</body>
+</html>
