@@ -404,6 +404,11 @@
       turnoInfo.textContent = "";
     });
   </script>
+  <script>
+  window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
+  // dispara un pageview cuando la página termina de cargar
+  window.addEventListener('DOMContentLoaded', () => { window.va('pageview'); });
+</script>
 <script defer src="/_vercel/insights/script.js"></script>  
 </body>
 </html>
